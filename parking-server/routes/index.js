@@ -87,6 +87,7 @@ router.post('/parking/register', function (req, res) {
     });
 });
 
+//이메일 중복 확인 
 router.post('/parking/register/duplex', (req, res) => {
     const { email } = req.body;
     const sql = 'SELECT id FROM user WHERE email = ?';

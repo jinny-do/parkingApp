@@ -15,6 +15,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import axios from 'axios';
 import {ParamListBase, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
+import {API_URL} from '@env';
 
 function Register(): JSX.Element {
   const [user, setUser] = useState({
@@ -41,10 +42,9 @@ function Register(): JSX.Element {
   //이메일 중복 확인
   const isDuplicatedEmail = async () => {
     try {
-      const response = await axios.post(
-        'http://192.168.0.10:3000/parking/register/duplex',
-        {email},
-      );
+      const response = await axios.post(`${API_URL}/parking/register/duplex`, {
+        email,
+      });
       const data = response.data;
 
       if (data.result === 'ok') {
@@ -93,15 +93,12 @@ function Register(): JSX.Element {
     }
 
     try {
-      const response = await axios.post(
-        'http://192.168.0.10:3000/parking/register',
-        {
-          name,
-          email,
-          passwd,
-          car_num: carNum,
-        },
-      );
+      const response = await axios.post(`${API_URL}/parking/register`, {
+        name,
+        email,
+        passwd,
+        car_num: carNum,
+      });
 
       const {code, message} = response.data[0]; // ← 배열에서 꺼냄
 
