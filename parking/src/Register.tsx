@@ -39,6 +39,7 @@ function Register(): JSX.Element {
   const emailCheck = () => {
     isDuplicatedEmail();
   };
+  
   //이메일 중복 확인
   const isDuplicatedEmail = async () => {
     try {

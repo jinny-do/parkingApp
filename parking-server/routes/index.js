@@ -20,33 +20,25 @@ router.get('/parking/test', function (req, res, next) {
     });
 });
 
-//로그인
-router.post('/parking/login', function (req, res, next) {
-    console.log('login / req.body = ' + JSON.stringify(req.body));
+//로그인 
+router.post('/parking/login', (req, res) => {
+    const { email, passwd } = req.body;
 
-    let userEmail = req.body.email;
-    let userPw = req.body.passwd;
-
-    let queryStr = `SELECT * FROM user WHERE email = "${userEmail}" AND passwd="${userPw}" `;
-    console.log('login / queryStr = ' + queryStr);
-    db.query(queryStr, (err, rows, fields) => {
-        if (!err) {
-            console.log('login / rows = ' + JSON.stringify(rows));
-
-            let len = Object.keys(rows).length;
-            console.log('login / length = ', len);
-
-            let code = len == 0 ? 1 : 0;
-            let message = len == 0 ? '아이디 또는 비밀번호가 잘못 입력되었습니다 ' : '로그인 성공';
-
-            res.json([{ code: code, message: message }]);
-        } else {
-            console.log('login /err = ' + err);
-
-            res.json([{ code: 1, message: err }]);
+    const queryStr = `SELECT * FROM user WHERE email = ? AND passwd = ?`;
+    db.query(queryStr, [email, passwd], (err, rows) => {
+        if (err) {
+            console.error('login / err =', err);
+            return res.status(500).json({ code: 1, message: '서버 에러' });
         }
+
+        if (rows.length === 0) {
+            return res.json({ code: 1, message: '아이디 또는 비밀번호가 잘못 입력되었습니다' });
+        }
+
+        res.json({ code: 0, message: '로그인 성공' });
     });
 });
+
 
 //회원가입
 router.post('/parking/register', function (req, res) {
