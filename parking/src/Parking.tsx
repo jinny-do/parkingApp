@@ -1,9 +1,9 @@
-//Parking.tsx
-
-import React, {useState} from 'react';
-import {View, Text, StyleSheet, FlatList, TouchableOpacity} from 'react-native';
-import {useRoute, RouteProp} from '@react-navigation/native';
+import React, {useState, useEffect} from 'react';
+import {View, Text, StyleSheet, FlatList, TouchableOpacity, Alert} from 'react-native';
+import {useRoute, RouteProp, useNavigation} from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import axios from 'axios';
+import {API_URL} from '@env';
 
 // 임시 자리 데이터 (차가 있으면 occupied: true)
 const initialSpaces = [
@@ -13,16 +13,29 @@ const initialSpaces = [
   {id: 4, occupied: true},
 ];
 
+type ParkingRouteParams = {
+  newBalance?: number;
+};
+
+type Space = {
+  id: number;
+  occupied: boolean;
+};
+
 export default function Parking() {
-  const [spaces, setSpaces] = useState(initialSpaces);
+  const route = useRoute<RouteProp<Record<string, ParkingRouteParams>, string>>();
+  const navigation = useNavigation();
 
-  type ParkingRouteParams = {
-    newBalance?: number;
-  };
+  // 잔액 상태 (초기값은 전달받은 newBalance 혹은 1000)
+  const [balance, setBalance] = useState<number>(route.params?.newBalance ?? 1000);
+  const [spaces, setSpaces] = useState<Space[]>(initialSpaces);
 
-  const route =
-    useRoute<RouteProp<Record<string, ParkingRouteParams>, string>>();
-  const balance = route.params?.newBalance ?? 1000;
+  // 잔액 변화 감지 및 화면 업데이트용 useEffect (필요시)
+  useEffect(() => {
+    if (route.params?.newBalance !== undefined) {
+      setBalance(route.params.newBalance);
+    }
+  }, [route.params?.newBalance]);
 
   let color = '';
   let message = '';
@@ -38,7 +51,7 @@ export default function Parking() {
     message = '충전이 필요합니다!';
   }
 
-  const renderItem = ({item}: {item: {id: number; occupied: boolean}}) => (
+  const renderItem = ({item}: {item: Space}) => (
     <View
       style={[
         styles.space,
@@ -50,6 +63,66 @@ export default function Parking() {
 
   const availableCount = spaces.filter(s => !s.occupied).length;
 
+  const handleEntry = async () => {
+    if (availableCount === 0) {
+      Alert.alert('입차 불가', '남은 자리가 없습니다.');
+      return;
+    }
+
+    try {
+      const response = await axios.post(`${API_URL}/parking/entry`, {
+        car_num: '12가3456', // 추후 로그인 정보로 대체
+        time: new Date().toISOString(),
+      });
+
+      Alert.alert('입차 성공', response.data.message);
+
+      // 서버가 입차 처리 성공 시 남은 자리 상태 업데이트 (예: 첫 빈자리 occupied true로 변경)
+      const firstEmptyIndex = spaces.findIndex(s => !s.occupied);
+      if (firstEmptyIndex >= 0) {
+        const updatedSpaces = [...spaces];
+        updatedSpaces[firstEmptyIndex].occupied = true;
+        setSpaces(updatedSpaces);
+      }
+
+      // 잔액 변경이 있을 경우, 예시로 잔액 갱신 (서버에서 받은 경우 반영)
+      if (response.data.newBalance !== undefined) {
+        setBalance(response.data.newBalance);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('입차 실패', '서버 오류가 발생했습니다.');
+    }
+  };
+
+  const handleExit = async () => {
+    try {
+      const response = await axios.post(`${API_URL}/parking/exit`, {
+        car_num: '12가3456', // 추후 로그인 정보로 대체
+        time: new Date().toISOString(),
+      });
+
+      Alert.alert('출차 성공', `요금: ${response.data.fee}원`);
+
+      // 서버가 출차 처리 성공 시 공간 상태 업데이트 (예: 출차된 자리 occupied false로 변경)
+      // 여기서는 임시로 첫 occupied true인 자리 비우기 처리
+      const firstOccupiedIndex = spaces.findIndex(s => s.occupied);
+      if (firstOccupiedIndex >= 0) {
+        const updatedSpaces = [...spaces];
+        updatedSpaces[firstOccupiedIndex].occupied = false;
+        setSpaces(updatedSpaces);
+      }
+
+      // 잔액 갱신 (서버에서 받은 경우 반영)
+      if (response.data.newBalance !== undefined) {
+        setBalance(response.data.newBalance);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('출차 실패', '서버 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🚗 주차장 실시간 현황</Text>
@@ -58,13 +131,13 @@ export default function Parking() {
         data={spaces}
         renderItem={renderItem}
         keyExtractor={item => item.id.toString()}
-        numColumns={2} // 2칸씩 두 줄로
+        numColumns={2}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.grid}
       />
-      <View>
-        <Text style={styles.status}>✅ 남은 자리: {availableCount}개</Text>
-      </View>
+
+      <Text style={styles.status}>✅ 남은 자리: {availableCount}개</Text>
+
       <View style={styles.balanceIndicator}>
         <Icon name="coins" size={20} color={color} />
         <Text style={[styles.balanceText, {color}]}>
@@ -73,11 +146,11 @@ export default function Parking() {
       </View>
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.buttonOpen}>
+        <TouchableOpacity style={styles.buttonOpen} onPress={handleEntry}>
           <Text style={styles.buttonText}>입차</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.buttonClose}>
+        <TouchableOpacity style={styles.buttonClose} onPress={handleExit}>
           <Text style={styles.buttonText}>출차</Text>
         </TouchableOpacity>
       </View>
@@ -137,33 +210,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     flex: 1,
   },
-
   buttonClose: {
     backgroundColor: '#FF6262',
     paddingVertical: 12,
     borderRadius: 10,
     flex: 1,
   },
-
   buttonText: {
     color: 'white',
     fontSize: 20,
     textAlign: 'center',
     fontWeight: 'bold',
   },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#ddd',
-    paddingVertical: 12,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
   balanceIndicator: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -180,6 +238,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginHorizontal: 40,
     marginTop: 70,
-    gap: 16, // React Native 최신 버전이면 gap 가능 (아니면 margin 써도 됨)
+    gap: 16,
   },
 });

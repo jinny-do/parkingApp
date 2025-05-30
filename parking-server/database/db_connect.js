@@ -14,3 +14,12 @@ const conn = db.createConnection({
 });
 
 module.exports = conn;
+
+console.log("DB 연결 시도: ", process.env.DB_HOST, process.env.DB_USER, process.env.DB_NAME);
+conn.connect((err) => {
+    if (err) {
+        console.error('MySQL 연결 실패:', err);
+    } else {
+        console.log('MySQL 연결 성공!');
+    }
+});

@@ -1,6 +1,4 @@
-// Cash.tsx
-
-import React, {JSX, useState} from 'react';
+import React, { JSX, useState } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -17,12 +15,14 @@ import {
   RouteProp,
   useRoute,
 } from '@react-navigation/native';
-import {StackNavigationProp} from '@react-navigation/stack';
+import { StackNavigationProp } from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 
-// 라우트 파라미터 타입 정의
+const API_URL = 'http://220.69.240.196:3000'; // .env 대신 하드코딩 (환경변수 설정시 변경)
+
 type PaymentRouteParams = {
   currentBalance: number;
+  member_id: string; // member_id 추가
 };
 
 function Cash(): JSX.Element {
@@ -32,28 +32,29 @@ function Cash(): JSX.Element {
   const route =
     useRoute<RouteProp<Record<string, PaymentRouteParams>, string>>();
 
-  // 현재 잔액 가져오기
+  // 현재 잔액과 member_id 받아오기
   const currentBalance = route.params?.currentBalance || 20000;
+  const member_id = route.params?.member_id || '';
 
   const [amount, setAmount] = useState<string>('');
   const [name, setName] = useState<string>('');
 
-  // 결제 금액 옵션
   const amountOptions = [10000, 30000, 50000, 100000];
 
-  // 금액 옵션 선택 처리
   const handleAmountSelect = (option: number) => {
     setAmount(option.toString());
   };
 
-  // 결제 처리 함수
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (!amount || !name) {
       Alert.alert('알림', '모든 정보를 입력해주세요.');
       return;
     }
+    if (!member_id) {
+      Alert.alert('알림', '로그인 정보가 없습니다.');
+      return;
+    }
 
-    // 결제 확인
     Alert.alert(
       '결제 확인',
       `${parseInt(amount).toLocaleString()}원을 결제하시겠습니까?`,
@@ -64,19 +65,44 @@ function Cash(): JSX.Element {
         },
         {
           text: '확인',
-          onPress: () => {
-            // 결제 성공 처리
-            const newBalance = currentBalance + parseInt(amount);
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_URL}/cash`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  member_id,
+                  amount: parseInt(amount),
+                }),
+              });
 
-            Alert.alert(
-              '결제 완료',
-              `${parseInt(
-                amount,
-              ).toLocaleString()}원이 성공적으로 충전되었습니다.`,
-            );
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.log('Server response error:', errorText);
+                Alert.alert('결제 실패', `서버 오류가 발생했습니다.\n${errorText}`);
+                return;
+              }
 
-            // 메인 화면으로 돌아가기 (새로운 잔액 전달)
-            navigation.navigate('Main', {newBalance});
+              const data = await response.json();
+              console.log('Charge response:', data);
+
+              Alert.alert(
+                '결제 완료',
+                `${parseInt(amount).toLocaleString()}원이 성공적으로 충전되었습니다.`,
+              );
+
+              // 서버에서 새 잔액을 받는다고 가정하는 경우:
+              // const newBalance = data.newBalance || currentBalance + parseInt(amount);
+              // 현재는 서버가 newBalance를 안 보내므로 계산해서 넘김
+              const newBalance = currentBalance + parseInt(amount);
+
+              navigation.navigate('Main', { newBalance });
+            } catch (error) {
+              console.log('Network error:', error);
+              Alert.alert('결제 실패', '네트워크 오류가 발생했습니다.');
+            }
           },
         },
       ],
