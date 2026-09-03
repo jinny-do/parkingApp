@@ -96,3 +96,6 @@ parkingApp/
     ├── app.js                     # Express 앱 설정
     └── package.json
 ```
+
+## 🏆 성과
+- IoT 종합설계 지역혁신 산업단 우수상 수상 
